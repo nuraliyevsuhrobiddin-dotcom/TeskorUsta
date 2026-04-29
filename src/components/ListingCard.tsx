@@ -1,8 +1,9 @@
-import { Star, MapPin, Briefcase, Phone, ShieldCheck } from "lucide-react";
+import { Star, MapPin, Briefcase, Phone, ShieldCheck, Heart } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Listing } from "@/data/mockListings";
 import { cn } from "@/lib/utils";
+import { useFavorites } from "@/hooks/useFavorites";
 
 interface ListingCardProps {
   listing: Listing;
@@ -32,6 +33,8 @@ export default function ListingCard({ listing, featured = false }: ListingCardPr
   const phoneHref = getPhoneHref(listing.phone);
   const telegramHref = getTelegramHref(listing.telegram);
   const contactHref = phoneHref || telegramHref || `/listings/${listing.slug}`;
+  const { isFavorite, toggleFavorite, isLoading } = useFavorites();
+  const saved = isFavorite(listing.id);
 
   return (
     <div 
@@ -63,6 +66,19 @@ export default function ListingCard({ listing, featured = false }: ListingCardPr
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void toggleFavorite(listing.id);
+              }}
+              disabled={isLoading}
+              className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 shadow-lg backdrop-blur-md transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={saved ? "Saqlanganlardan olib tashlash" : "Saqlanganlarga qo'shish"}
+            >
+              <Heart className={`h-4.5 w-4.5 ${saved ? "fill-rose-500 text-rose-500" : ""}`} />
+            </button>
             {/* Bottom Badges */}
             <div className="absolute bottom-3 left-3 flex items-center gap-2">
               <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-slate-800 dark:text-slate-200 px-2 py-1 rounded-lg text-xs font-semibold shadow-sm">

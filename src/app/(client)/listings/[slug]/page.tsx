@@ -138,8 +138,7 @@ export default function ListingDetail({ params }: { params: Promise<{ slug: stri
           </button>
           <button 
             onClick={() => {
-              toggleFavorite(listing);
-              toast.success(isFavorite(listing.id) ? "Saqlanganlardan olib tashlandi" : "Saqlanganlarga qo'shildi");
+              void toggleFavorite(listing.id);
             }} 
             className="flex items-center justify-center w-10 h-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm text-slate-800 dark:text-slate-100 interactive"
           >

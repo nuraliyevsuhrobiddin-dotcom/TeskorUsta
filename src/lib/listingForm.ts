@@ -9,6 +9,7 @@ type ListingFormInput = {
   rating: string;
   description: string;
   services: string[];
+  imageCount?: number;
 };
 
 const PHONE_REGEX = /^\+?\d[\d\s()-]{8,}$/;
@@ -44,6 +45,16 @@ export function validateListingForm(input: ListingFormInput): string | null {
 
   if (input.services.length === 0) {
     return "Kamida bitta xizmat qo'shing";
+  }
+
+  if (typeof input.imageCount === "number") {
+    if (input.imageCount === 0) {
+      return "Kamida bitta rasm yuklang";
+    }
+
+    if (input.imageCount > 5) {
+      return "5 tadan ko'p rasm saqlab bo'lmaydi";
+    }
   }
 
   return null;

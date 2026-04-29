@@ -17,6 +17,7 @@ export interface Listing {
   experienceYears: number;
   isVip: boolean;
   imageUrl: string;
+  images: string[];
   description: string;
   services: string[];
   reviews: Review[];
@@ -60,6 +61,7 @@ export const mockListings: Listing[] = [
     experienceYears: 8,
     isVip: true,
     imageUrl: "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?q=80&w=400&auto=format&fit=crop",
+    images: ["https://images.unsplash.com/photo-1540569014015-19a7be504e3a?q=80&w=400&auto=format&fit=crop"],
     description: "Assalomu alaykum! Men 8 yillik tajribaga ega professional santexnikman. Barcha turdagi santexnika ishlarini tez va sifatli bajaraman. Quvurlarni almashtirish, unitaz o'rnatish, isitish tizimlarini ta'mirlash.",
     services: [
       "Quvurlarni tozalash",
@@ -95,6 +97,7 @@ export const mockListings: Listing[] = [
     experienceYears: 5,
     isVip: true,
     imageUrl: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?q=80&w=400&auto=format&fit=crop",
+    images: ["https://images.unsplash.com/photo-1621905252507-b35492cc74b4?q=80&w=400&auto=format&fit=crop"],
     description: "Uy va ofislar uchun barcha turdagi elektr montaj ishlari. Qisqa tutashuvlarni topish va to'g'irlash, rozetka va viklyuchatellarni o'rnatish.",
     services: [
       "Elektr simlarini tortish",
@@ -123,6 +126,7 @@ export const mockListings: Listing[] = [
     experienceYears: 3,
     isVip: false,
     imageUrl: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?q=80&w=400&auto=format&fit=crop",
+    images: ["https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?q=80&w=400&auto=format&fit=crop"],
     description: "Santexnika va kanalizatsiya muammolarini hal qilaman. Hamyonbop narxlar va kafolatli xizmat.",
     services: [
       "Kranlarni almashtirish",
@@ -142,6 +146,7 @@ export const mockListings: Listing[] = [
     experienceYears: 12,
     isVip: true,
     imageUrl: "https://images.unsplash.com/photo-1534398079543-7ae6d016b86a?q=80&w=400&auto=format&fit=crop",
+    images: ["https://images.unsplash.com/photo-1534398079543-7ae6d016b86a?q=80&w=400&auto=format&fit=crop"],
     description: "Konditsionerlarni yuvish, freon quyish, o'rnatish va ta'mirlash. Toshkent bo'ylab tezkor yetib borish.",
     services: [
       "Freon quyish",
@@ -162,6 +167,7 @@ export const mockListings: Listing[] = [
     experienceYears: 6,
     isVip: false,
     imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=400&auto=format&fit=crop",
+    images: ["https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=400&auto=format&fit=crop"],
     description: "Kvartira va uylarni noldan ta'mirlash. Oboi yopishtirish, gipsokarton ishlari, kafel terish.",
     services: [
       "Kafel terish",

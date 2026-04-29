@@ -1,5 +1,12 @@
 import { createClient } from "./client";
 import { defaultCategories, Listing } from "@/data/mockListings";
+import {
+  buildListingImagePath,
+  extractStoragePathFromPublicUrl,
+  getListingImageUrls,
+  LISTING_EMPTY_IMAGE,
+  validateListingImageFile,
+} from "@/lib/listingImages";
 
 type ReviewRow = {
   id: string;
@@ -20,6 +27,7 @@ type ListingRow = {
   experience_years: number | null;
   is_vip: boolean | null;
   image_url: string | null;
+  images: string[] | null;
   description: string | null;
   services: string[] | null;
   reviews?: ReviewRow[];
@@ -28,7 +36,7 @@ type ListingRow = {
   telegram?: string | null;
 };
 
-type ListingWriteInput = {
+export type ListingWriteInput = {
   name: string;
   slug: string;
   category: string;
@@ -40,17 +48,37 @@ type ListingWriteInput = {
   description?: string;
   services: string[];
   imageUrl?: string;
+  images?: string[];
   isVip: boolean;
   isActive: boolean;
 };
 
-type DashboardStats = {
+export type DashboardStats = {
   totalListings: number;
   vipListings: number;
   totalViews: number;
   activeListings: number;
   latestUpdateLabel: string;
 };
+
+export type ListingImageUploadResult = {
+  urls: string[];
+  uploadedCount: number;
+};
+
+type FavoriteRow = {
+  id: string;
+  listing_id: string;
+  listings: ListingRow | ListingRow[] | null;
+};
+
+type CategoryCacheEntry = {
+  expiresAt: number;
+  value: string[];
+};
+
+const ACTIVE_CATEGORY_CACHE_TTL_MS = 60_000;
+let activeCategoryCache: CategoryCacheEntry | null = null;
 
 const SLUG_CHAR_MAP: Record<string, string> = {
   а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "j", з: "z", и: "i",
@@ -65,8 +93,6 @@ function transliterateToSlug(value: string) {
     .replace(/[а-яёқғҳўә]/g, (char) => SLUG_CHAR_MAP[char] ?? "")
     .replace(/o['’`]/g, "o")
     .replace(/g['’`]/g, "g")
-    .replace(/sh/g, "sh")
-    .replace(/ch/g, "ch")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
@@ -103,6 +129,29 @@ async function slugExists(slug: string, excludeId?: string) {
   return Boolean(data && data.length > 0);
 }
 
+function buildListingPayload(listingData: ListingWriteInput) {
+  const imageUrls = getListingImageUrls(listingData.images, listingData.imageUrl).filter(
+    (url) => url !== LISTING_EMPTY_IMAGE
+  );
+
+  return {
+    name: listingData.name,
+    slug: listingData.slug,
+    category: listingData.category,
+    district: listingData.district,
+    phone: listingData.phone,
+    telegram: listingData.telegram,
+    experience_years: Number(listingData.experience) || 0,
+    rating: Number(listingData.rating) || 5.0,
+    description: listingData.description,
+    services: listingData.services || [],
+    images: imageUrls,
+    image_url: imageUrls[0] ?? listingData.imageUrl ?? null,
+    is_vip: listingData.isVip,
+    is_active: listingData.isActive,
+  };
+}
+
 export async function fetchListings(): Promise<Listing[]> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -116,7 +165,7 @@ export async function fetchListings(): Promise<Listing[]> {
     return [];
   }
 
-  return data.map(mapListing);
+  return data.map((row) => mapListing(row as ListingRow));
 }
 
 export async function fetchAdminListings(): Promise<Listing[]> {
@@ -131,7 +180,7 @@ export async function fetchAdminListings(): Promise<Listing[]> {
     return [];
   }
 
-  return data.map(mapListing);
+  return data.map((row) => mapListing(row as ListingRow));
 }
 
 export async function fetchAdminDashboardStats(): Promise<DashboardStats> {
@@ -198,15 +247,204 @@ export async function fetchCategories(): Promise<string[]> {
     return defaultCategories;
   }
 
-  const uniqueCategories = Array.from(
+  const databaseCategories = data
+    .map((row) => row.category?.trim())
+    .filter((category): category is string => Boolean(category));
+
+  const uniqueCategories = Array.from(new Set([...defaultCategories, ...databaseCategories]));
+
+  return uniqueCategories;
+}
+
+export async function fetchActiveCategories(): Promise<string[]> {
+  const now = Date.now();
+
+  if (activeCategoryCache && activeCategoryCache.expiresAt > now) {
+    return activeCategoryCache.value;
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("listings")
+    .select("category")
+    .eq("is_active", true)
+    .not("category", "is", null)
+    .order("category", { ascending: true });
+
+  if (error || !data) {
+    console.error("Error fetching active categories:", error);
+    return [];
+  }
+
+  const categories = Array.from(
     new Set(
       data
         .map((row) => row.category?.trim())
         .filter((category): category is string => Boolean(category))
     )
+  ).sort((first, second) => first.localeCompare(second, "uz"));
+
+  activeCategoryCache = {
+    value: categories,
+    expiresAt: now + ACTIVE_CATEGORY_CACHE_TTL_MS,
+  };
+
+  return categories;
+}
+
+export async function fetchValidFavoriteListings(
+  favoriteIds: string[]
+): Promise<{ listings: Listing[]; removedIds: string[] }> {
+  const normalizedIds = Array.from(
+    new Set(
+      favoriteIds
+        .map((favoriteId) => favoriteId.trim())
+        .filter((favoriteId) => Boolean(favoriteId))
+    )
   );
 
-  return uniqueCategories.length > 0 ? uniqueCategories : defaultCategories;
+  if (normalizedIds.length === 0) {
+    return { listings: [], removedIds: [] };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("listings")
+    .select("*")
+    .in("id", normalizedIds)
+    .eq("is_active", true);
+
+  if (error || !data) {
+    console.error("Error fetching saved listings:", error);
+    return { listings: [], removedIds: normalizedIds };
+  }
+
+  const listings = data.map((row) => mapListing(row as ListingRow));
+  const foundIds = new Set(listings.map((listing) => listing.id));
+  const removedIds = normalizedIds.filter((favoriteId) => !foundIds.has(favoriteId));
+
+  if (removedIds.length > 0) {
+    console.warn("Broken saved records removed from favorites:", removedIds);
+  }
+
+  const orderedListings = normalizedIds
+    .map((favoriteId) => listings.find((listing) => listing.id === favoriteId) ?? null)
+    .filter((listing): listing is Listing => Boolean(listing));
+
+  return {
+    listings: orderedListings,
+    removedIds,
+  };
+}
+
+export async function fetchUserFavoriteIds(userId: string): Promise<string[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("favorites")
+    .select("listing_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    console.error("Error fetching favorite IDs:", error);
+    return [];
+  }
+
+  return data
+    .map((row) => row.listing_id?.trim())
+    .filter((listingId): listingId is string => Boolean(listingId));
+}
+
+export async function addFavorite(userId: string, listingId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase.from("favorites").insert({
+    user_id: userId,
+    listing_id: listingId,
+  });
+
+  if (error) {
+    console.error("Error adding favorite:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function removeFavorite(userId: string, listingId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("favorites")
+    .delete()
+    .eq("user_id", userId)
+    .eq("listing_id", listingId);
+
+  if (error) {
+    console.error("Error removing favorite:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function migrateFavoriteIdsToSupabase(
+  userId: string,
+  listingIds: string[]
+): Promise<boolean> {
+  const normalizedIds = Array.from(
+    new Set(listingIds.map((listingId) => listingId.trim()).filter((listingId) => Boolean(listingId)))
+  );
+
+  if (normalizedIds.length === 0) {
+    return true;
+  }
+
+  const supabase = createClient();
+  const payload = normalizedIds.map((listingId) => ({
+    user_id: userId,
+    listing_id: listingId,
+  }));
+
+  const { error } = await supabase.from("favorites").upsert(payload, {
+    onConflict: "user_id,listing_id",
+    ignoreDuplicates: true,
+  });
+
+  if (error) {
+    console.error("Error migrating guest favorites:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function fetchUserFavoriteListings(userId: string): Promise<Listing[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("favorites")
+    .select("id, listing_id, listings(*)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    console.error("Error fetching favorite listings:", error);
+    return [];
+  }
+
+  const rows = data as FavoriteRow[];
+  const validListings: Listing[] = [];
+
+  rows.forEach((row) => {
+    const rawListing = Array.isArray(row.listings) ? row.listings[0] ?? null : row.listings;
+
+    if (!rawListing || rawListing.is_active === false) {
+      console.warn("Broken saved record skipped:", row.listing_id);
+      return;
+    }
+
+    validListings.push(mapListing(rawListing));
+  });
+
+  return validListings;
 }
 
 export async function generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -224,6 +462,8 @@ export async function generateUniqueSlug(name: string, excludeId?: string): Prom
 }
 
 export function mapListing(row: ListingRow): Listing {
+  const images = getListingImageUrls(row.images, row.image_url);
+
   return {
     id: row.id,
     name: row.name,
@@ -232,21 +472,30 @@ export function mapListing(row: ListingRow): Listing {
     district: row.district,
     rating: Number(row.rating ?? 0),
     experienceYears: row.experience_years ?? 0,
-    imageUrl: row.image_url || "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=400&auto=format&fit=crop",
+    imageUrl: images[0],
+    images,
     isVip: row.is_vip ?? false,
     isActive: row.is_active ?? true,
     description: row.description || "",
     services: row.services || [],
     phone: row.phone || "",
     telegram: row.telegram || "",
-    reviews: row.reviews ? row.reviews.map((r) => ({
-      id: r.id,
-      author: r.user_name,
-      rating: r.rating,
-      comment: r.comment,
-      date: new Date(r.created_at).toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' })
-    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [],
-    reviewsCount: row.reviews_count || 0
+    reviews: row.reviews
+      ? row.reviews
+          .map((review) => ({
+            id: review.id,
+            author: review.user_name,
+            rating: review.rating,
+            comment: review.comment,
+            date: new Date(review.created_at).toLocaleDateString("uz-UZ", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            }),
+          }))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      : [],
+    reviewsCount: row.reviews_count || 0,
   };
 }
 
@@ -263,19 +512,23 @@ export async function fetchListingBySlug(slug: string): Promise<Listing | null> 
     return null;
   }
 
-  return mapListing(data);
+  return mapListing(data as ListingRow);
 }
+
 export async function deleteListing(id: string): Promise<boolean> {
   const supabase = createClient();
-  const { error } = await supabase
-    .from("listings")
-    .delete()
-    .eq("id", id);
-    
+  const listing = await fetchListingById(id);
+  const { error } = await supabase.from("listings").delete().eq("id", id);
+
   if (error) {
     console.error("Error deleting listing:", error);
     return false;
   }
+
+  if (listing?.images?.length) {
+    await deleteImagesFromStorage(listing.images);
+  }
+
   return true;
 }
 
@@ -285,13 +538,14 @@ export async function toggleListingStatus(id: string, currentStatus: boolean): P
     .from("listings")
     .update({ is_active: !currentStatus })
     .eq("id", id);
-    
+
   if (error) {
     console.error("Error toggling listing status:", error);
     return false;
   }
   return true;
 }
+
 export async function fetchListingById(id: string): Promise<Listing | null> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -305,85 +559,85 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
     return null;
   }
 
-  return mapListing(data);
+  return mapListing(data as ListingRow);
 }
 
 export async function updateListing(id: string, listingData: ListingWriteInput): Promise<boolean> {
   const supabase = createClient();
-  const updatePayload: Record<string, unknown> = {
-    name: listingData.name,
-    slug: listingData.slug,
-    category: listingData.category,
-    district: listingData.district,
-    phone: listingData.phone,
-    telegram: listingData.telegram,
-    experience_years: Number(listingData.experience) || 0,
-    rating: Number(listingData.rating) || 5.0,
-    description: listingData.description,
-    services: listingData.services || [],
-    is_vip: listingData.isVip,
-    is_active: listingData.isActive,
-  };
-
-  if (listingData.imageUrl) {
-    updatePayload.image_url = listingData.imageUrl;
-  }
-
   const { error } = await supabase
     .from("listings")
-    .update(updatePayload)
+    .update(buildListingPayload(listingData))
     .eq("id", id);
-    
+
   if (error) {
     console.error("Error updating listing:", error);
     return false;
   }
   return true;
 }
-export async function uploadImage(file: File): Promise<string | null> {
+
+export async function uploadListingImages(
+  files: File[],
+  onProgress?: (uploadedCount: number, totalCount: number) => void
+): Promise<ListingImageUploadResult> {
   const supabase = createClient();
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random()}.${fileExt}`;
-  const filePath = `${fileName}`;
+  const uploadedUrls: string[] = [];
 
-  const { error } = await supabase.storage
-    .from('listing-images')
-    .upload(filePath, file);
+  for (const file of files) {
+    const validationError = validateListingImageFile(file);
+    if (validationError) {
+      throw new Error(validationError);
+    }
 
-  if (error) {
-    console.error("Error uploading image:", error);
-    return null;
+    const filePath = buildListingImagePath(file);
+    const { error } = await supabase.storage
+      .from("listing-images")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
+
+    if (error) {
+      console.error("Error uploading image:", error);
+      throw new Error("Rasmni yuklashda xatolik yuz berdi");
+    }
+
+    const { data } = supabase.storage.from("listing-images").getPublicUrl(filePath);
+    uploadedUrls.push(data.publicUrl);
+    onProgress?.(uploadedUrls.length, files.length);
   }
 
-  const { data } = supabase.storage
-    .from('listing-images')
-    .getPublicUrl(filePath);
+  return {
+    urls: uploadedUrls,
+    uploadedCount: uploadedUrls.length,
+  };
+}
 
-  return data.publicUrl;
+export async function deleteImagesFromStorage(urls: string[]) {
+  const supabase = createClient();
+  const paths = urls
+    .map((url) => extractStoragePathFromPublicUrl(url))
+    .filter((path): path is string => Boolean(path));
+
+  if (paths.length === 0) {
+    return true;
+  }
+
+  const { error } = await supabase.storage.from("listing-images").remove(paths);
+
+  if (error) {
+    console.error("Error deleting images from storage:", error);
+    return false;
+  }
+
+  return true;
 }
 
 export async function addListing(listingData: ListingWriteInput): Promise<boolean> {
   const supabase = createClient();
-  const { error } = await supabase
-    .from("listings")
-    .insert([
-      {
-        name: listingData.name,
-        slug: listingData.slug,
-        category: listingData.category,
-        district: listingData.district,
-        phone: listingData.phone,
-        telegram: listingData.telegram,
-        experience_years: Number(listingData.experience) || 0,
-        rating: Number(listingData.rating) || 5.0,
-        description: listingData.description,
-        services: listingData.services || [],
-        image_url: listingData.imageUrl,
-        is_vip: listingData.isVip,
-        is_active: listingData.isActive,
-      }
-    ]);
-    
+  const { error } = await supabase.from("listings").insert([buildListingPayload(listingData)]);
+
   if (error) {
     console.error("Error adding listing:", error);
     return false;
@@ -391,19 +645,20 @@ export async function addListing(listingData: ListingWriteInput): Promise<boolea
   return true;
 }
 
-export async function addReviewToListing(listingId: string, review: { name: string, rating: number, comment: string }): Promise<boolean> {
+export async function addReviewToListing(
+  listingId: string,
+  review: { name: string; rating: number; comment: string }
+): Promise<boolean> {
   const supabase = createClient();
-  const { error } = await supabase
-    .from("reviews")
-    .insert([
-      {
-        listing_id: listingId,
-        user_name: review.name,
-        rating: review.rating,
-        comment: review.comment
-      }
-    ]);
-    
+  const { error } = await supabase.from("reviews").insert([
+    {
+      listing_id: listingId,
+      user_name: review.name,
+      rating: review.rating,
+      comment: review.comment,
+    },
+  ]);
+
   if (error) {
     console.error("Error adding review:", error);
     return false;

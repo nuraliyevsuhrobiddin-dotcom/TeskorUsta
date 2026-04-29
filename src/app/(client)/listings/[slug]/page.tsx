@@ -13,6 +13,25 @@ import { useFavorites } from "@/hooks/useFavorites";
 import toast from "react-hot-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+function getTelegramHref(telegram?: string) {
+  const value = telegram?.trim();
+  if (!value) {
+    return "https://t.me/tezkorusta";
+  }
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  const username = value.startsWith("@") ? value.slice(1) : value;
+  return `https://t.me/${username}`;
+}
+
+function getPhoneHref(phone?: string) {
+  const normalized = phone?.replace(/[^\d+]/g, "").trim();
+  return normalized ? `tel:${normalized}` : "tel:+998900000000";
+}
+
 export default function ListingDetail({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
   const [listing, setListing] = useState<Listing | null>(null);
@@ -62,6 +81,9 @@ export default function ListingDetail({ params }: { params: Promise<{ slug: stri
   }
 
   if (!listing) return notFound();
+
+  const telegramHref = getTelegramHref(listing.telegram);
+  const phoneHref = getPhoneHref(listing.phone);
 
   const handleSubmitReview = async () => {
     if (!reviewForm.name.trim() || !reviewForm.comment.trim()) {
@@ -235,11 +257,11 @@ export default function ListingDetail({ params }: { params: Promise<{ slug: stri
 
       {/* Sticky Bottom Actions */}
       <div className="fixed bottom-0 w-full max-w-[430px] mx-auto left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 p-4 px-5 pb-safe flex gap-3 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] dark:shadow-none">
-        <a href="https://t.me/tezkorusta" target="_blank" rel="noopener noreferrer" className="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 interactive transition-colors">
+        <a href={telegramHref} target="_blank" rel="noopener noreferrer" className="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 interactive transition-colors">
           <Send className="w-5 h-5 text-blue-500" />
           Telegram
         </a>
-        <a href="tel:+998900000000" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 interactive shadow-lg shadow-blue-600/30 transition-colors">
+        <a href={phoneHref} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 interactive shadow-lg shadow-blue-600/30 transition-colors">
           <Phone className="w-5 h-5" />
           Qo'ng'iroq
         </a>

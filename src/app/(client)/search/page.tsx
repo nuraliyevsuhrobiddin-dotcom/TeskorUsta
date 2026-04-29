@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { Suspense, useDeferredValue, useEffect, useMemo, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import ListingCard from "@/components/ListingCard";
 import FilterChip from "@/components/FilterChip";
-import { categories, Listing } from "@/data/mockListings";
+import { defaultCategories, Listing } from "@/data/mockListings";
 import { Search as SearchIcon, ChevronLeft, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { fetchListings } from "@/lib/supabase/api";
+import { fetchCategories, fetchListings } from "@/lib/supabase/api";
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -19,23 +19,30 @@ function SearchContent() {
   const [activeCategory, setActiveCategory] = useState(categoryParam || "Barchasi");
   
   const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
     fetchListings().then(data => {
       setListings(data);
-      setLoading(false);
     });
+    fetchCategories().then(setCategories);
   }, []);
 
-  const filteredListings = listings.filter(l => {
-    const matchesSearch = l.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          l.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          l.district.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === "Barchasi" || l.category === activeCategory;
-    const matchesVip = !isVip || l.isVip;
-    return matchesSearch && matchesCategory && matchesVip;
-  });
+  const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
+  const filteredListings = useMemo(() => {
+    return listings.filter((listing) => {
+      const matchesSearch =
+        normalizedSearchQuery.length === 0 ||
+        listing.name.toLowerCase().includes(normalizedSearchQuery) ||
+        listing.category.toLowerCase().includes(normalizedSearchQuery) ||
+        listing.district.toLowerCase().includes(normalizedSearchQuery);
+      const matchesCategory =
+        activeCategory === "Barchasi" || listing.category === activeCategory;
+      const matchesVip = !isVip || listing.isVip;
+      return matchesSearch && matchesCategory && matchesVip;
+    });
+  }, [activeCategory, isVip, listings, normalizedSearchQuery]);
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-slate-950 pb-24 transition-colors duration-200">

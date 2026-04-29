@@ -1,6 +1,6 @@
 "use client";
 
-import { Wrench, Zap, Home, MapPin, ChevronDown } from "lucide-react";
+import { Wrench, Zap, MapPin, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 

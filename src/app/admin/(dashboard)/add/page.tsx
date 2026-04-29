@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { districts, categories } from "@/data/mockListings";
+import { useEffect, useRef, useState } from "react";
+import { districts, defaultCategories } from "@/data/mockListings";
 import { UploadCloud, CheckCircle, X, Save, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import { addListing, uploadImage } from "@/lib/supabase/api";
+import { addListing, fetchCategories, generateUniqueSlug, uploadImage } from "@/lib/supabase/api";
+import { validateListingForm } from "@/lib/listingForm";
 
 export default function AdminAddListing() {
   const router = useRouter();
+  const slugRequestId = useRef(0);
   const [formData, setFormData] = useState({
     name: "",
     slug: "",
-    category: categories[0],
+    category: defaultCategories[0],
     district: districts[0],
     phone: "",
     telegram: "",
@@ -27,11 +29,39 @@ export default function AdminAddListing() {
   const [newService, setNewService] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    fetchCategories().then((categoryOptions) => {
+      setCategories(categoryOptions);
+      setFormData((current) => ({
+        ...current,
+        category: current.category || categoryOptions[0] || defaultCategories[0],
+      }));
+    });
+  }, []);
+
+  const handleNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    setFormData({ ...formData, name, slug });
+    const requestId = ++slugRequestId.current;
+    setFormData((current) => ({ ...current, name }));
+
+    if (!name.trim()) {
+      setFormData((current) => ({ ...current, slug: "" }));
+      return;
+    }
+
+    try {
+      const slug = await generateUniqueSlug(name);
+      if (slugRequestId.current === requestId) {
+        setFormData((current) => ({ ...current, slug }));
+      }
+    } catch {
+      if (slugRequestId.current === requestId) {
+        setFormData((current) => ({ ...current, slug: "" }));
+      }
+      toast.error("Slug yaratishda xatolik yuz berdi");
+    }
   };
 
   const addService = () => {
@@ -47,13 +77,27 @@ export default function AdminAddListing() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
-      toast.error("Iltimos, barcha majburiy maydonlarni to'ldiring");
+    const validationError = validateListingForm({
+      ...formData,
+      services,
+    });
+
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
     
     setIsSaving(true);
+    let finalSlug = formData.slug;
     let imageUrl = "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=400&auto=format&fit=crop"; // Default
+
+    try {
+      finalSlug = await generateUniqueSlug(formData.name);
+    } catch {
+      setIsSaving(false);
+      toast.error("Slug yaratishda xatolik yuz berdi");
+      return;
+    }
 
     if (imageFile) {
       const uploadedUrl = await uploadImage(imageFile);
@@ -62,9 +106,12 @@ export default function AdminAddListing() {
 
     const success = await addListing({
       ...formData,
+      slug: finalSlug,
       services,
       imageUrl
     });
+
+    setFormData((current) => ({ ...current, slug: finalSlug }));
 
     setIsSaving(false);
 
@@ -217,6 +264,17 @@ export default function AdminAddListing() {
                 placeholder="+998 90 123 45 67"
                 value={formData.phone}
                 onChange={e => setFormData({...formData, phone: e.target.value})}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">Telegram (Username yoki Ssilka)</label>
+              <input 
+                type="text" 
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-medium"
+                placeholder="@username yoki https://t.me/username"
+                value={formData.telegram}
+                onChange={e => setFormData({...formData, telegram: e.target.value})}
               />
             </div>
             

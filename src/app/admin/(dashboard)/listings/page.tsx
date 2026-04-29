@@ -5,7 +5,7 @@ import { districts, Listing } from "@/data/mockListings";
 import { Search, Filter, MoreVertical, Edit, Trash2, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { fetchListings, deleteListing, toggleListingStatus } from "@/lib/supabase/api";
+import { fetchAdminListings, deleteListing, toggleListingStatus } from "@/lib/supabase/api";
 
 export default function AdminListingsPage() {
   const [search, setSearch] = useState("");
@@ -17,7 +17,7 @@ export default function AdminListingsPage() {
 
   const loadListings = async () => {
     setLoading(true);
-    const data = await fetchListings();
+    const data = await fetchAdminListings();
     setListings(data);
     setLoading(false);
   };

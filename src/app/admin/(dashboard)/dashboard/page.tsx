@@ -1,15 +1,29 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Users, FileText, Eye, ShieldCheck, ArrowUpRight, PlusCircle, Settings, List } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { fetchAdminDashboardStats } from "@/lib/supabase/api";
 
 export default function DashboardPage() {
+  const [statsData, setStatsData] = useState({
+    totalListings: 0,
+    vipListings: 0,
+    totalViews: 0,
+    activeListings: 0,
+    latestUpdateLabel: "Yuklanmoqda...",
+  });
+
+  useEffect(() => {
+    fetchAdminDashboardStats().then(setStatsData);
+  }, []);
+
   const stats = [
-    { name: "Jami e'lonlar", value: "124", change: "+12%", icon: FileText, color: "bg-blue-500" },
-    { name: "VIP e'lonlar", value: "45", change: "+5%", icon: ShieldCheck, color: "bg-amber-500" },
-    { name: "Bugungi ko'rishlar", value: "2,845", change: "+24%", icon: Eye, color: "bg-emerald-500" },
-    { name: "Aktiv ustalar", value: "89", change: "+2%", icon: Users, color: "bg-indigo-500" },
+    { name: "Jami e'lonlar", value: String(statsData.totalListings), change: "Live", icon: FileText, color: "bg-blue-500" },
+    { name: "VIP e'lonlar", value: String(statsData.vipListings), change: "Live", icon: ShieldCheck, color: "bg-amber-500" },
+    { name: "Bugungi ko'rishlar", value: statsData.totalViews.toLocaleString("uz-UZ"), change: "Live", icon: Eye, color: "bg-emerald-500" },
+    { name: "Aktiv ustalar", value: String(statsData.activeListings), change: "Live", icon: Users, color: "bg-indigo-500" },
   ];
 
   const quickActions = [
@@ -24,7 +38,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
         <div className="text-sm font-medium text-slate-500">
-          Oxirgi yangilanish: Bugun, 10:45
+          Oxirgi yangilanish: {statsData.latestUpdateLabel}
         </div>
       </div>
 

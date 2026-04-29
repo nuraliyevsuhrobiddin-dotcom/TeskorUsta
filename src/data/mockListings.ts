@@ -21,6 +21,8 @@ export interface Listing {
   services: string[];
   reviews: Review[];
   isActive?: boolean;
+  phone?: string;
+  telegram?: string;
 }
 
 export const districts = [
@@ -37,7 +39,7 @@ export const districts = [
   "Yangihayot"
 ];
 
-export const categories = [
+export const defaultCategories = [
   "Santexnik",
   "Elektrik",
   "Konditsioner usta",

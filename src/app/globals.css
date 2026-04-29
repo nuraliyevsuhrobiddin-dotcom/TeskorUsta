@@ -13,7 +13,7 @@
   --color-text-secondary: #64748b;
   --color-text-tertiary: #94a3b8;
 
-  --font-sans: var(--font-outfit), var(--font-inter), sans-serif;
+  --font-sans: "Segoe UI", "Trebuchet MS", "Arial", sans-serif;
 
   --radius-xl: 1.5rem;
   --radius-2xl: 2rem;

@@ -4,16 +4,15 @@ import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import SearchBar from "@/components/SearchBar";
 import ListingCard from "@/components/ListingCard";
-import { mockListings } from "@/data/mockListings";
-import { ShieldCheck, Clock, Award, ChevronRight, Wrench, Zap, Star, CheckCircle2, Send } from "lucide-react";
+import { defaultCategories, Listing } from "@/data/mockListings";
+import { ShieldCheck, Award, ChevronRight, Wrench, Zap, Star, CheckCircle2, Send, Briefcase } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Listing } from "@/data/mockListings";
-import { fetchListings } from "@/lib/supabase/api";
+import { fetchCategories, fetchListings } from "@/lib/supabase/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const servicesList = [
+const staticServicesList = [
   { id: "Santexnik", icon: Wrench, labelUz: "Santexnik", labelRu: "Сантехник", color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10" },
   { id: "Elektrik", icon: Zap, labelUz: "Elektrik", labelRu: "Электрик", color: "text-amber-500 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10" },
 ];
@@ -26,18 +25,31 @@ const testimonials = [
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<string[]>(
+    defaultCategories.length > 0
+      ? defaultCategories
+      : staticServicesList.map((service) => service.id)
+  );
   const { t, language } = useLanguage();
 
   useEffect(() => {
     fetchListings().then(data => {
       setListings(data);
-      setLoading(false);
     });
+    fetchCategories().then(setCategories);
   }, []);
 
   const vipListings = listings.filter(l => l.isVip);
   const recentListings = listings.slice(0, 4);
+  const servicesList = categories.map((category) => {
+    if (category === "Santexnik") {
+      return { id: category, icon: Wrench, labelUz: category, labelRu: "РЎР°РЅС‚РµС…РЅРёРє", color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10" };
+    }
+    if (category === "Elektrik") {
+      return { id: category, icon: Zap, labelUz: category, labelRu: "Р­Р»РµРєС‚СЂРёРє", color: "text-amber-500 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10" };
+    }
+    return { id: category, icon: Briefcase, labelUz: category, labelRu: category, color: "text-emerald-500 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10" };
+  });
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 font-inter transition-colors duration-200">

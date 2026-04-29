@@ -6,6 +6,7 @@ import { LayoutDashboard, Users, UserPlus, Star, Settings, LogOut, Wrench, Shiel
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
+import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const menuItems = [
@@ -18,7 +19,7 @@ const menuItems = [
   { name: "Sozlamalar", href: "/admin/settings", icon: Settings },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ isOpen = false, onClose }: { isOpen?: boolean, onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -31,15 +32,31 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 h-screen sticky top-0">
-      <div className="p-6">
-        <Link href="/admin/dashboard" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20">
-            <Wrench className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-outfit font-bold text-xl text-slate-800 tracking-tight">Admin<span className="text-blue-600">Panel</span></span>
-        </Link>
-      </div>
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={cn(
+        "fixed md:sticky top-0 left-0 z-50 flex flex-col w-64 bg-white border-r border-slate-200 h-screen transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        <div className="p-6 flex items-center justify-between">
+          <Link href="/admin/dashboard" className="flex items-center gap-2 group" onClick={onClose}>
+            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20">
+              <Wrench className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-outfit font-bold text-xl text-slate-800 tracking-tight">Admin<span className="text-blue-600">Panel</span></span>
+          </Link>
+          <button className="md:hidden p-2 text-slate-400 hover:bg-slate-100 rounded-lg" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
       <nav className="flex-1 px-4 flex flex-col gap-1 overflow-y-auto no-scrollbar">
         {menuItems.map((item) => {
@@ -55,6 +72,8 @@ export default function AdminSidebar() {
                 if (isPlaceholder) {
                   e.preventDefault();
                   toast.success("Ushbu bo'lim tez kunda qo'shiladi", { icon: "🚧" });
+                } else if (onClose) {
+                  onClose();
                 }
               }}
               className={cn(
@@ -80,6 +99,7 @@ export default function AdminSidebar() {
           Tizimdan chiqish
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

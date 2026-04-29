@@ -1,22 +1,24 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-import { districts, categories, mockListings } from "@/data/mockListings";
-import { UploadCloud, CheckCircle, X, Save, Eye, ChevronLeft } from "lucide-react";
+import { use, useEffect, useRef, useState } from "react";
+import { districts, defaultCategories } from "@/data/mockListings";
+import { UploadCloud, CheckCircle, X, Save, ChevronLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fetchListingById, updateListing, uploadImage } from "@/lib/supabase/api";
+import { fetchCategories, fetchListingById, generateUniqueSlug, updateListing, uploadImage } from "@/lib/supabase/api";
+import { validateListingForm } from "@/lib/listingForm";
 
 export default function AdminEditListing({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
   const listingId = resolvedParams.id;
+  const slugRequestId = useRef(0);
   
   const [formData, setFormData] = useState({
     name: "",
     slug: "",
-    category: categories[0],
+    category: defaultCategories[0],
     district: districts[0],
     phone: "",
     telegram: "",
@@ -33,6 +35,11 @@ export default function AdminEditListing({ params }: { params: Promise<{ id: str
   const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
+
+  useEffect(() => {
+    fetchCategories().then(setCategories);
+  }, []);
 
   useEffect(() => {
     fetchListingById(listingId).then(listing => {
@@ -60,10 +67,27 @@ export default function AdminEditListing({ params }: { params: Promise<{ id: str
     });
   }, [listingId, router]);
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    setFormData({ ...formData, name, slug });
+    const requestId = ++slugRequestId.current;
+    setFormData((current) => ({ ...current, name }));
+
+    if (!name.trim()) {
+      setFormData((current) => ({ ...current, slug: "" }));
+      return;
+    }
+
+    try {
+      const slug = await generateUniqueSlug(name, listingId);
+      if (slugRequestId.current === requestId) {
+        setFormData((current) => ({ ...current, slug }));
+      }
+    } catch {
+      if (slugRequestId.current === requestId) {
+        setFormData((current) => ({ ...current, slug: "" }));
+        toast.error("Slug yaratishda xatolik yuz berdi");
+      }
+    }
   };
 
   const addService = () => {
@@ -79,13 +103,27 @@ export default function AdminEditListing({ params }: { params: Promise<{ id: str
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
-      toast.error("Iltimos, barcha majburiy maydonlarni to'ldiring");
+    const validationError = validateListingForm({
+      ...formData,
+      services,
+    });
+
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
     
     setIsSaving(true);
+    let finalSlug = formData.slug;
     let imageUrl = currentImageUrl;
+
+    try {
+      finalSlug = await generateUniqueSlug(formData.name, listingId);
+    } catch {
+      setIsSaving(false);
+      toast.error("Slug yaratishda xatolik yuz berdi");
+      return;
+    }
 
     if (imageFile) {
       const uploadedUrl = await uploadImage(imageFile);
@@ -94,9 +132,12 @@ export default function AdminEditListing({ params }: { params: Promise<{ id: str
 
     const success = await updateListing(listingId, {
       ...formData,
+      slug: finalSlug,
       services,
       imageUrl
     });
+
+    setFormData((current) => ({ ...current, slug: finalSlug }));
 
     setIsSaving(false);
 
@@ -258,6 +299,16 @@ export default function AdminEditListing({ params }: { params: Promise<{ id: str
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-medium"
                 value={formData.phone}
                 onChange={e => setFormData({...formData, phone: e.target.value})}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">Telegram (Username yoki Ssilka)</label>
+              <input 
+                type="text" 
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-medium"
+                value={formData.telegram}
+                onChange={e => setFormData({...formData, telegram: e.target.value})}
               />
             </div>
             

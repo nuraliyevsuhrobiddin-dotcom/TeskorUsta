@@ -18,7 +18,9 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, role)
-  VALUES (new.id, new.email, 'admin'); -- Defaulting to admin for MVP, can change to 'user' later
+  VALUES (new.id, new.email, 'user')
+  ON CONFLICT (id) DO UPDATE
+  SET email = EXCLUDED.email;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

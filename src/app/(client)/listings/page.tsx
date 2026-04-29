@@ -12,12 +12,10 @@ import { Listing } from "@/data/mockListings";
 export default function ListingsPage() {
   const [sortBy, setSortBy] = useState<"vip" | "rating" | "new">("vip");
   const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchListings().then(data => {
       setListings(data);
-      setLoading(false);
     });
   }, []);
 
@@ -53,7 +51,7 @@ export default function ListingsPage() {
               <select 
                 className="bg-transparent text-sm font-bold text-blue-600 outline-none cursor-pointer"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as "vip" | "rating" | "new")}
               >
                  <option value="vip">VIP oldin</option>
                  <option value="rating">Reytingi yuqori</option>

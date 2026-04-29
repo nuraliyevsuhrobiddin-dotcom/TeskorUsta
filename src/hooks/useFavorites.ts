@@ -1,19 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Listing } from "@/data/mockListings";
 
 export function useFavorites() {
-  const [favorites, setFavorites] = useState<Listing[]>([]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("tezkorusta_favorites");
-    if (saved) {
-      try {
-        setFavorites(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse favorites", e);
-      }
+  const [favorites, setFavorites] = useState<Listing[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
     }
-  }, []);
+
+    const saved = window.localStorage.getItem("tezkorusta_favorites");
+    if (!saved) {
+      return [];
+    }
+
+    try {
+      return JSON.parse(saved) as Listing[];
+    } catch (error) {
+      console.error("Failed to parse favorites", error);
+      return [];
+    }
+  });
 
   const toggleFavorite = (listing: Listing) => {
     setFavorites(prev => {

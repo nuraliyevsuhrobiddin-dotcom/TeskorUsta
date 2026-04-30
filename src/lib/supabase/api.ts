@@ -80,6 +80,11 @@ type CategoryCacheEntry = {
 const ACTIVE_CATEGORY_CACHE_TTL_MS = 60_000;
 let activeCategoryCache: CategoryCacheEntry | null = null;
 
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
 const SLUG_CHAR_MAP: Record<string, string> = {
   а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "j", з: "z", и: "i",
   й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t",
@@ -129,12 +134,24 @@ async function slugExists(slug: string, excludeId?: string) {
   return Boolean(data && data.length > 0);
 }
 
-function buildListingPayload(listingData: ListingWriteInput) {
+function isMissingImagesColumnError(error: unknown) {
+  const supabaseError = error as SupabaseErrorLike | null;
+  const message = supabaseError?.message?.toLowerCase() ?? "";
+
+  return (
+    supabaseError?.code === "PGRST204" &&
+    message.includes("images") &&
+    message.includes("listings")
+  );
+}
+
+function buildListingPayload(listingData: ListingWriteInput, options: { includeImages?: boolean } = {}) {
+  const { includeImages = true } = options;
   const imageUrls = getListingImageUrls(listingData.images, listingData.imageUrl).filter(
     (url) => url !== LISTING_EMPTY_IMAGE
   );
 
-  return {
+  const payload = {
     name: listingData.name,
     slug: listingData.slug,
     category: listingData.category,
@@ -145,11 +162,12 @@ function buildListingPayload(listingData: ListingWriteInput) {
     rating: Number(listingData.rating) || 5.0,
     description: listingData.description,
     services: listingData.services || [],
-    images: imageUrls,
     image_url: imageUrls[0] ?? listingData.imageUrl ?? null,
     is_vip: listingData.isVip,
     is_active: listingData.isActive,
   };
+
+  return includeImages ? { ...payload, images: imageUrls } : payload;
 }
 
 export async function fetchListings(): Promise<Listing[]> {
@@ -570,6 +588,21 @@ export async function updateListing(id: string, listingData: ListingWriteInput):
     .eq("id", id);
 
   if (error) {
+    if (isMissingImagesColumnError(error)) {
+      console.warn("Listings table does not have an images column. Retrying update with image_url only.");
+      const { error: fallbackError } = await supabase
+        .from("listings")
+        .update(buildListingPayload(listingData, { includeImages: false }))
+        .eq("id", id);
+
+      if (!fallbackError) {
+        return true;
+      }
+
+      console.error("Error updating listing without images column:", fallbackError);
+      return false;
+    }
+
     console.error("Error updating listing:", error);
     return false;
   }
@@ -639,6 +672,20 @@ export async function addListing(listingData: ListingWriteInput): Promise<boolea
   const { error } = await supabase.from("listings").insert([buildListingPayload(listingData)]);
 
   if (error) {
+    if (isMissingImagesColumnError(error)) {
+      console.warn("Listings table does not have an images column. Retrying insert with image_url only.");
+      const { error: fallbackError } = await supabase
+        .from("listings")
+        .insert([buildListingPayload(listingData, { includeImages: false })]);
+
+      if (!fallbackError) {
+        return true;
+      }
+
+      console.error("Error adding listing without images column:", fallbackError);
+      return false;
+    }
+
     console.error("Error adding listing:", error);
     return false;
   }

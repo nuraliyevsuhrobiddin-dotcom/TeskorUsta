@@ -46,6 +46,7 @@ CREATE TABLE listings (
   description TEXT,
   services TEXT[] DEFAULT '{}',
   image_url TEXT,
+  images TEXT[] NOT NULL DEFAULT '{}',
   is_vip BOOLEAN DEFAULT false,
   is_active BOOLEAN DEFAULT true,
   views_count INTEGER DEFAULT 0,
@@ -148,7 +149,8 @@ CREATE POLICY "Users can delete favorites" ON favorites FOR DELETE USING (auth.u
 CREATE POLICY "Public can view listing images" ON storage.objects FOR SELECT USING (bucket_id = 'listing-images');
 -- Admins can upload/update/delete images
 CREATE POLICY "Admins can manage listing images" ON storage.objects FOR ALL 
-  USING (bucket_id = 'listing-images' AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (bucket_id = 'listing-images' AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
+  WITH CHECK (bucket_id = 'listing-images' AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- ==========================================
 -- 8. TRIGGERS FOR RATING RECALCULATION

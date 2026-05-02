@@ -10,8 +10,15 @@ CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
   email TEXT NOT NULL,
   role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  name TEXT,
+  phone TEXT,
+  avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
 -- Function to handle new user signups
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
@@ -108,6 +115,10 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('listing-images', 'listing-images', true) 
 ON CONFLICT DO NOTHING;
 
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT DO NOTHING;
+
 -- ==========================================
 -- 7. ROW LEVEL SECURITY (RLS) POLICIES
 -- ==========================================
@@ -120,6 +131,9 @@ ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can read their own profile
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
 -- Admins can view all profiles
 CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT USING (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
@@ -151,6 +165,15 @@ CREATE POLICY "Public can view listing images" ON storage.objects FOR SELECT USI
 CREATE POLICY "Admins can manage listing images" ON storage.objects FOR ALL 
   USING (bucket_id = 'listing-images' AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
   WITH CHECK (bucket_id = 'listing-images' AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "Public can view avatars" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+CREATE POLICY "Users can upload own avatar" ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "Users can update own avatar" ON storage.objects FOR UPDATE
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text)
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "Users can delete own avatar" ON storage.objects FOR DELETE
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ==========================================
 -- 8. TRIGGERS FOR RATING RECALCULATION

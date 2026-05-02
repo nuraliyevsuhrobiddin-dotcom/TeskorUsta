@@ -46,7 +46,8 @@ export const defaultCategories = [
   "Konditsioner usta",
   "Pardozlovchi",
   "Mebel yig'uvchi",
-  "Maishiy texnika"
+  "Maishiy texnika",
+  "Kunlikchi ustalar"
 ];
 
 export const mockListings: Listing[] = [

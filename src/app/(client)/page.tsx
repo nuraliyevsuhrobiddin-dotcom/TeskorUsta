@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { fetchActiveCategories, fetchListings } from "@/lib/supabase/api";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getCategoryVisual } from "@/lib/categoryIconMapper";
+import { getCategoryDisplayLabel, getCategoryVisual } from "@/lib/categoryIconMapper";
 
 const testimonials = [
   {
@@ -40,6 +40,8 @@ const testimonials = [
     textRu: "Р§РµСЂРµР· TezkorUsta РЅР°С€РµР» РЅР°РґРµР¶РЅРѕРіРѕ СЌР»РµРєС‚СЂРёРєР°. РЎРїР°СЃРёР±Рѕ!",
   },
 ];
+
+const PINNED_HOME_CATEGORIES = ["Kunlikchi ustalar"];
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -91,14 +93,17 @@ export default function Home() {
   const vipListings = listings.filter((listing) => listing.isVip);
   const recentListings = listings.slice(0, 4);
   const servicesList = useMemo(
-    () =>
-      categories.map((category) => ({
+    () => {
+      const visibleCategories = isCategoriesError
+        ? categories
+        : Array.from(new Set([...categories, ...PINNED_HOME_CATEGORIES]));
+
+      return visibleCategories.map((category) => ({
         id: category,
-        labelUz: category,
-        labelRu: category,
         ...getCategoryVisual(category),
-      })),
-    [categories]
+      }));
+    },
+    [categories, isCategoriesError]
   );
 
   return (
@@ -106,7 +111,7 @@ export default function Home() {
       <Header />
 
       <main className="flex-1 flex flex-col">
-        <section className="relative px-5 pt-8 pb-12 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white overflow-hidden rounded-b-[2.5rem] shadow-sm">
+        <section className="relative px-5 pt-9 pb-16 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white overflow-hidden rounded-b-[2.5rem] shadow-sm">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400 opacity-20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4" />
 
@@ -116,14 +121,24 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="relative z-10"
           >
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-[1.15] mb-3 drop-shadow-sm">
-              {t("heroTitle1")} <br />
-              <span className="text-yellow-300">{t("heroTitle2")}</span> <br />
-              {t("heroTitle3")}
+            <h1 className="text-[34px] sm:text-5xl font-black tracking-tight leading-[1.05] mb-4 drop-shadow-sm max-w-[360px]">
+              {t("heroConversionLine1")} <br />
+              <span className="text-yellow-300">{t("heroConversionLine2")}</span> <br />
+              {t("heroConversionLine3")}
             </h1>
-            <p className="text-blue-100 text-[15px] font-medium mb-8 max-w-[280px] leading-relaxed">
-              {t("heroSubtitle")}
+            <p className="text-white/95 text-base font-semibold mb-3 max-w-[320px] leading-relaxed">
+              {t("heroConversionSubtitle")}
             </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] font-semibold text-blue-50/95">
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-yellow-300" />
+                {t("heroTrustMasters")}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-yellow-300" />
+                {t("heroTrustFastReply")}
+              </span>
+            </div>
           </motion.div>
 
           <motion.div
@@ -168,6 +183,8 @@ export default function Home() {
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.96 }}
                       transition={{ delay: index * 0.05 }}
                       className="flex flex-col items-center gap-2 group interactive"
                     >
@@ -177,7 +194,7 @@ export default function Home() {
                         <Icon className="w-7 h-7" strokeWidth={1.5} />
                       </div>
                       <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 text-center leading-tight">
-                        {language === "uz" ? service.labelUz : service.labelRu}
+                        {getCategoryDisplayLabel(service.id, language)}
                       </span>
                     </motion.div>
                   </Link>

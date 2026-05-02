@@ -10,9 +10,12 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { fetchCategories, fetchListings } from "@/lib/supabase/api";
+import { getCategoryDisplayLabel } from "@/lib/categoryIconMapper";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function SearchContent() {
   const searchParams = useSearchParams();
+  const { language } = useLanguage();
   const isVip = searchParams.get("vip") === "true";
   const categoryParam = searchParams.get("category");
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,7 +76,7 @@ function SearchContent() {
           <div className="flex overflow-x-auto no-scrollbar px-4 gap-2 snap-x">
             <div className="snap-start">
                <FilterChip 
-                 label="Barchasi" 
+                 label={language === "uz" ? "Barchasi" : "Все"} 
                  isActive={activeCategory === "Barchasi"} 
                  onClick={() => setActiveCategory("Barchasi")} 
                />
@@ -81,7 +84,7 @@ function SearchContent() {
             {categories.map((c) => (
               <div key={c} className="snap-start">
                  <FilterChip 
-                   label={c} 
+                   label={getCategoryDisplayLabel(c, language)} 
                    isActive={activeCategory === c} 
                    onClick={() => setActiveCategory(c)} 
                  />

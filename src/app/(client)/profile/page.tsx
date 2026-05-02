@@ -8,25 +8,142 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
+
+type ProfileData = {
+  name: string;
+  phone: string;
+  avatar: string;
+};
+
+const EMPTY_PROFILE: ProfileData = { name: "", phone: "", avatar: "" };
+
+function getCacheBustedUrl(url: string) {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}t=${Date.now()}`;
+}
+
+function getProfileInitials(name: string) {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+
+  return initials || "TU";
+}
+
+function AvatarPreview({
+  avatarUrl,
+  name,
+  size = "md",
+}: {
+  avatarUrl?: string;
+  name: string;
+  size?: "md" | "lg";
+}) {
+  const [hasImageError, setHasImageError] = useState(false);
+  const showImage = Boolean(avatarUrl) && !hasImageError;
+  const sizeClassName = size === "lg" ? "w-28 h-28" : "w-16 h-16";
+  const iconClassName = size === "lg" ? "w-9 h-9" : "w-8 h-8";
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [avatarUrl]);
+
+  return (
+    <div
+      className={`${sizeClassName} rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-100 dark:border-blue-500/20 overflow-hidden relative`}
+    >
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt={name ? `${name} avatar` : "Profile avatar"}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          onError={() => setHasImageError(true)}
+        />
+      ) : name.trim() ? (
+        <span className="text-lg font-black text-blue-600 dark:text-blue-300">
+          {getProfileInitials(name)}
+        </span>
+      ) : (
+        <User className={iconClassName} />
+      )}
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const router = useRouter();
   const { language, toggleLanguage, t } = useLanguage();
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
-  const [profileData, setProfileData] = useState({ name: "", phone: "", avatar: "" });
+  const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", phone: "", avatar: "" });
+  const [editForm, setEditForm] = useState<ProfileData>(EMPTY_PROFILE);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
 
   useEffect(() => {
     setDarkMode(localStorage.getItem("tezkor_theme") === "dark");
     setNotifications(localStorage.getItem("tezkor_notifications") !== "false");
     const savedProfile = localStorage.getItem("tezkor_profile");
+    let localProfile = EMPTY_PROFILE;
+
     if (savedProfile) {
       try {
-        setProfileData(JSON.parse(savedProfile));
+        localProfile = { ...EMPTY_PROFILE, ...JSON.parse(savedProfile) };
+        setProfileData(localProfile);
       } catch (e) {}
     }
+
+    const loadSupabaseProfile = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return;
+      }
+
+      const metadataAvatar =
+        typeof user.user_metadata?.avatar_url === "string" ? user.user_metadata.avatar_url : "";
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("name, phone, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Profile avatar could not be loaded from Supabase:", error.message);
+        if (metadataAvatar) {
+          setProfileData((current) => ({
+            ...current,
+            avatar: getCacheBustedUrl(metadataAvatar),
+          }));
+        }
+        return;
+      }
+
+      const remoteAvatar = typeof data?.avatar_url === "string" ? data.avatar_url : metadataAvatar;
+      const nextProfile = {
+        name: typeof data?.name === "string" && data.name ? data.name : localProfile.name,
+        phone: typeof data?.phone === "string" && data.phone ? data.phone : localProfile.phone,
+        avatar: remoteAvatar ? getCacheBustedUrl(remoteAvatar) : localProfile.avatar,
+      };
+
+      setProfileData(nextProfile);
+      localStorage.setItem("tezkor_profile", JSON.stringify(nextProfile));
+    };
+
+    loadSupabaseProfile();
   }, []);
 
   const handleLanguageToggle = () => {
@@ -62,26 +179,59 @@ export default function ProfilePage() {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     setProfileData(editForm);
     localStorage.setItem("tezkor_profile", JSON.stringify(editForm));
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: editForm.name || null,
+          phone: editForm.phone || null,
+          avatar_url: editForm.avatar || null,
+        })
+        .eq("id", user.id);
+
+      if (error) {
+        console.warn("Profile data could not be saved to Supabase:", error.message);
+      }
+    }
+
     setIsEditModalOpen(false);
     toast.success(t("save") + " muvaffaqiyatli");
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Rasm hajmi 2MB dan oshmasligi kerak");
+    if (!file.type.startsWith("image/")) {
+      toast.error("Faqat rasm faylini yuklang");
+      e.target.value = "";
       return;
     }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Rasm hajmi 2MB dan oshmasligi kerak");
+      e.target.value = "";
+      return;
+    }
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement("canvas");
         let width = img.width;
         let height = img.height;
@@ -89,28 +239,76 @@ export default function ProfilePage() {
 
         if (width > height) {
           if (width > maxSize) {
-            height *= Math.round(maxSize / width);
+            height *= maxSize / width;
             width = maxSize;
           }
         } else {
           if (height > maxSize) {
-            width *= Math.round(maxSize / height);
+            width *= maxSize / height;
             height = maxSize;
           }
         }
 
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
           const dataUrl = canvas.toDataURL("image/jpeg", 0.7); // 70% quality
           setEditForm(prev => ({ ...prev, avatar: dataUrl }));
+
+          if (!user) {
+            return;
+          }
+
+          setIsAvatarUploading(true);
+          canvas.toBlob(
+            async (blob) => {
+              if (!blob) {
+                setIsAvatarUploading(false);
+                toast.error("Rasmni tayyorlashda xatolik yuz berdi");
+                return;
+              }
+
+              const avatarPath = `${user.id}/avatar.jpg`;
+              const { error: uploadError } = await supabase.storage
+                .from("avatars")
+                .upload(avatarPath, blob, {
+                  cacheControl: "3600",
+                  contentType: "image/jpeg",
+                  upsert: true,
+                });
+
+              if (uploadError) {
+                setIsAvatarUploading(false);
+                console.error("Avatar upload failed:", uploadError);
+                toast.error("Avatar yuklashda xatolik yuz berdi");
+                return;
+              }
+
+              const { data } = supabase.storage.from("avatars").getPublicUrl(avatarPath);
+              const publicAvatarUrl = getCacheBustedUrl(data.publicUrl);
+
+              const nextProfile = { ...editForm, avatar: publicAvatarUrl };
+
+              setEditForm((prev) => ({ ...prev, avatar: publicAvatarUrl }));
+              setProfileData(nextProfile);
+              localStorage.setItem("tezkor_profile", JSON.stringify(nextProfile));
+
+              await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", user.id);
+
+              setIsAvatarUploading(false);
+              toast.success("Avatar yangilandi");
+            },
+            "image/jpeg",
+            0.82
+          );
         }
       };
       img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const ListItem = ({ icon: Icon, title, value, onClick, href, colorClass, isSwitch, switchValue }: any) => {
@@ -152,13 +350,7 @@ export default function ProfilePage() {
           onClick={handleOpenEdit}
           className="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 cursor-pointer interactive active:scale-[0.98]"
         >
-          <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-100 dark:border-blue-500/20 overflow-hidden relative">
-            {profileData.avatar ? (
-              <img src={profileData.avatar} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <User className="w-8 h-8" />
-            )}
-          </div>
+          <AvatarPreview avatarUrl={profileData.avatar} name={profileData.name} />
           <div className="flex-1">
             <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{profileData.name || "TezkorUsta"}</h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-0.5">{profileData.phone || t("clientPage")}</p>
@@ -234,7 +426,7 @@ export default function ProfilePage() {
               <ListItem 
                 icon={HelpCircle} 
                 title={t("faq")} 
-                onClick={() => toast.success("Tez kunda...")}
+                href="/faq"
                 colorClass="bg-purple-50 dark:bg-purple-500/10 text-purple-500" 
               />
             </div>
@@ -291,7 +483,7 @@ export default function ProfilePage() {
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                     {editForm.avatar ? (
                       <>
-                        <img src={editForm.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                        <AvatarPreview avatarUrl={editForm.avatar} name={editForm.name} size="lg" />
                         <div className="absolute inset-0 bg-slate-900/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                            <Camera className="w-6 h-6 text-white mb-1" />
                         </div>
@@ -300,6 +492,11 @@ export default function ProfilePage() {
                       <div className="flex flex-col items-center text-slate-400 dark:text-slate-500">
                         <Camera className="w-8 h-8 mb-1" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">{t("uploadAvatar")}</span>
+                      </div>
+                    )}
+                    {isAvatarUploading && (
+                      <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-white">
+                        Upload...
                       </div>
                     )}
                   </label>

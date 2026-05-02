@@ -2,6 +2,7 @@ import {
   Briefcase,
   Fan,
   Hammer,
+  HardHat,
   Paintbrush,
   Settings,
   Wrench,
@@ -9,10 +10,43 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+type SupportedLanguage = "uz" | "ru";
+
 export type HomeCategoryVisual = {
   bgClassName: string;
   colorClassName: string;
   icon: LucideIcon;
+};
+
+const CATEGORY_LABELS: Record<string, Record<SupportedLanguage, string>> = {
+  santexnik: {
+    uz: "Santexnik",
+    ru: "Сантехник",
+  },
+  elektrik: {
+    uz: "Elektrik",
+    ru: "Электрик",
+  },
+  "konditsioner usta": {
+    uz: "Konditsioner usta",
+    ru: "Кондиционеры",
+  },
+  pardozlovchi: {
+    uz: "Pardozlovchi",
+    ru: "Отделочник",
+  },
+  "mebel yig'uvchi": {
+    uz: "Mebel yig'uvchi",
+    ru: "Сборщик мебели",
+  },
+  "maishiy texnika": {
+    uz: "Maishiy texnika",
+    ru: "Бытовая техника",
+  },
+  "kunlikchi ustalar": {
+    uz: "Kunlikchi ustalar",
+    ru: "Рабочие на день",
+  },
 };
 
 const CATEGORY_VISUALS: Record<string, HomeCategoryVisual> = {
@@ -46,6 +80,12 @@ const CATEGORY_VISUALS: Record<string, HomeCategoryVisual> = {
     colorClassName: "text-violet-500 dark:text-violet-400",
     bgClassName: "bg-violet-50 dark:bg-violet-500/10",
   },
+  "kunlikchi ustalar": {
+    icon: HardHat,
+    colorClassName: "text-white",
+    bgClassName:
+      "bg-gradient-to-br from-orange-500 via-amber-400 to-yellow-300 shadow-orange-500/25",
+  },
 };
 
 const DEFAULT_VISUAL: HomeCategoryVisual = {
@@ -57,4 +97,9 @@ const DEFAULT_VISUAL: HomeCategoryVisual = {
 export function getCategoryVisual(category: string): HomeCategoryVisual {
   const normalizedCategory = category.trim().toLowerCase();
   return CATEGORY_VISUALS[normalizedCategory] ?? DEFAULT_VISUAL;
+}
+
+export function getCategoryDisplayLabel(category: string, language: SupportedLanguage = "uz"): string {
+  const normalizedCategory = category.trim().toLowerCase();
+  return CATEGORY_LABELS[normalizedCategory]?.[language] ?? category;
 }

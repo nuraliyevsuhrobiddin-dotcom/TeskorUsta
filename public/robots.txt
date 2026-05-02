@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /api
+Disallow: /login
+Disallow: /profile
+
+Sitemap: https://www.teskorusta24.uz/sitemap.xml

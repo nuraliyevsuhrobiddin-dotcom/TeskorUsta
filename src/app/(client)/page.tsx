@@ -328,7 +328,7 @@ export default function Home() {
               {t("becomeMasterSub")}
             </p>
             <a
-              href="https://t.me/nuraliyev1s"
+              href="https://t.me/teskorustabot?start=admin"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-[0_8px_20px_-6px_rgba(59,130,246,0.5)] hover:scale-105 transition-transform relative z-10"

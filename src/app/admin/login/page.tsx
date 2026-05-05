@@ -13,6 +13,9 @@ export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [isResetSending, setIsResetSending] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +40,35 @@ export default function AdminLogin() {
       router.push("/admin/dashboard");
       router.refresh(); // Refresh to update middleware state
     }
+  };
+
+  const handleForgotPasswordClick = () => {
+    setResetEmail(email);
+    setIsResetOpen((current) => !current);
+  };
+
+  const handlePasswordReset = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const targetEmail = resetEmail.trim();
+    if (!targetEmail) {
+      toast.error("Email manzilni kiriting");
+      return;
+    }
+
+    setIsResetSending(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+      redirectTo: `${window.location.origin}/admin/login`,
+    });
+    setIsResetSending(false);
+
+    if (error) {
+      toast.error("Reset havolasini yuborib bo'lmadi: " + error.message);
+      return;
+    }
+
+    toast.success("Parolni tiklash havolasi emailingizga yuborildi");
+    setIsResetOpen(false);
   };
 
   return (
@@ -99,7 +131,13 @@ export default function AdminLogin() {
               </div>
               <span className="text-sm font-medium text-slate-600 group-hover:text-slate-800 transition-colors">Eslab qolish</span>
             </label>
-            <a href="#" className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">Parolni unutdingizmi?</a>
+            <button
+              type="button"
+              onClick={handleForgotPasswordClick}
+              className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              Parolni unutdingizmi?
+            </button>
           </div>
 
           <button 
@@ -111,6 +149,31 @@ export default function AdminLogin() {
             {!loading && <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
           </button>
         </form>
+
+        {isResetOpen && (
+          <form onSubmit={handlePasswordReset} className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+              Parolni tiklash emaili
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="email"
+                className="w-full pl-11 pr-4 py-3.5 bg-white border border-blue-100 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                placeholder="admin@tezkorusta.uz"
+                value={resetEmail}
+                onChange={(event) => setResetEmail(event.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isResetSending}
+              className="mt-3 w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-bold py-3 rounded-xl transition-colors"
+            >
+              {isResetSending ? "Yuborilmoqda..." : "Reset havolasini yuborish"}
+            </button>
+          </form>
+        )}
       </motion.div>
     </div>
   );

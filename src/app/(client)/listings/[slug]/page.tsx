@@ -161,7 +161,7 @@ export default function ListingDetail({ params }: { params: Promise<{ slug: stri
           src={listing.imageUrl} 
           alt={listing.name} 
           fill 
-          sizes="100vw"
+          sizes="(max-width: 768px) 100vw, 33vw"
           className="object-cover"
           priority
         />

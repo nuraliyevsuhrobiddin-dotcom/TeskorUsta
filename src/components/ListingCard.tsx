@@ -8,6 +8,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 interface ListingCardProps {
   listing: Listing;
   featured?: boolean;
+  priority?: boolean;
 }
 
 function getTelegramHref(telegram?: string) {
@@ -29,7 +30,7 @@ function getPhoneHref(phone?: string) {
   return normalized ? `tel:${normalized}` : null;
 }
 
-export default function ListingCard({ listing, featured = false }: ListingCardProps) {
+export default function ListingCard({ listing, featured = false, priority = false }: ListingCardProps) {
   const phoneHref = getPhoneHref(listing.phone);
   const telegramHref = getTelegramHref(listing.telegram);
   const contactHref = phoneHref || telegramHref || `/listings/${listing.slug}`;
@@ -56,6 +57,7 @@ export default function ListingCard({ listing, featured = false }: ListingCardPr
               alt={listing.name} 
               fill 
               sizes="(max-width: 768px) 100vw, 33vw"
+              priority={priority}
               className="object-cover transition-transform duration-500 hover:scale-105"
             />
             {/* Top Badges */}

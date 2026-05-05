@@ -18,6 +18,19 @@ type ProfileData = {
 
 const EMPTY_PROFILE: ProfileData = { name: "", phone: "", avatar: "" };
 
+function isMissingProfileFieldError(message?: string) {
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes("profiles.name") ||
+    message.includes("profiles.phone") ||
+    message.includes("profiles.avatar_url") ||
+    (message.includes("column") && message.includes("does not exist"))
+  );
+}
+
 function getCacheBustedUrl(url: string) {
   if (!url || url.startsWith("data:") || url.startsWith("blob:")) {
     return url;
@@ -123,11 +136,23 @@ export default function ProfilePage() {
 
       if (error) {
         console.warn("Profile avatar could not be loaded from Supabase:", error.message);
+        if (isMissingProfileFieldError(error.message)) {
+          const fallbackProfile = {
+            ...localProfile,
+            avatar: metadataAvatar ? getCacheBustedUrl(metadataAvatar) : localProfile.avatar,
+          };
+          setProfileData(fallbackProfile);
+          localStorage.setItem("tezkor_profile", JSON.stringify(fallbackProfile));
+          return;
+        }
+
         if (metadataAvatar) {
-          setProfileData((current) => ({
-            ...current,
+          const fallbackProfile = {
+            ...localProfile,
             avatar: getCacheBustedUrl(metadataAvatar),
-          }));
+          };
+          setProfileData(fallbackProfile);
+          localStorage.setItem("tezkor_profile", JSON.stringify(fallbackProfile));
         }
         return;
       }

@@ -160,7 +160,7 @@ export default function SavedPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: index * 0.04 }}
               >
-                <ListingCard listing={listing} />
+                <ListingCard listing={listing} priority={index === 0} />
               </motion.div>
             ))}
           </motion.div>

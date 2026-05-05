@@ -157,7 +157,7 @@ function SearchContent() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
                 >
-                   <ListingCard listing={listing} />
+                   <ListingCard listing={listing} priority={i === 0} />
                 </motion.div>
              ))
            ) : (

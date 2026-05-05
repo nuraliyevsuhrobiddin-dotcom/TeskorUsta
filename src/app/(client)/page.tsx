@@ -270,7 +270,7 @@ export default function Home() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.1 }}
               >
-                <ListingCard listing={listing} featured />
+                <ListingCard listing={listing} featured priority={index === 0} />
               </motion.div>
             ))}
           </div>
@@ -324,7 +324,7 @@ export default function Home() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: index * 0.05 }}
               >
-                <ListingCard listing={listing} />
+                <ListingCard listing={listing} priority={vipListings.length === 0 && index === 0} />
               </motion.div>
             ))}
           </div>

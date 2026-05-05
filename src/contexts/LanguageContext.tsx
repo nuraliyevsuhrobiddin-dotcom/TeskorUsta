@@ -87,19 +87,19 @@ interface LanguageContextProps {
 const LanguageContext = createContext<LanguageContextProps | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") {
-      return "uz";
-    }
+  const [language, setLanguage] = useState<Language>("uz");
 
+  useEffect(() => {
     const saved = window.localStorage.getItem("tezkor_language");
-    return saved === "ru" || saved === "uz" ? saved : "uz";
-  });
+    if (saved === "ru" || saved === "uz") {
+      setLanguage(saved);
+    }
+  }, []);
 
   const toggleLanguage = () => {
     const next = language === "uz" ? "ru" : "uz";
     setLanguage(next);
-    localStorage.setItem("tezkor_language", next);
+    window.localStorage.setItem("tezkor_language", next);
   };
 
   const t = (key: string) => {

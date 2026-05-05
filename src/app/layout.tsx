@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import InstallPrompt from "@/components/InstallPrompt";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import ThemeInitializer from "@/components/ThemeInitializer";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 export const metadata: Metadata = {
   title: "TezkorUsta | Toshkent bo'yicha usta topish",
@@ -31,31 +33,18 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-import { LanguageProvider } from "@/contexts/LanguageContext";
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="uz" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: `
-          try {
-            const theme = localStorage.getItem('tezkor_theme');
-            if (theme === 'dark') {
-              document.documentElement.classList.add('dark');
-            } else if (theme === 'light') {
-              document.documentElement.classList.remove('dark');
-            }
-          } catch (_) {}
-        `}} />
-      </head>
+    <html lang="uz">
       <body
         className="antialiased bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-200"
       >
         <LanguageProvider>
+          <ThemeInitializer />
           <AnalyticsTracker />
           {children}
           <InstallPrompt />

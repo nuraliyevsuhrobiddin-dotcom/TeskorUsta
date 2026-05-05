@@ -24,6 +24,8 @@ export interface Listing {
   isActive?: boolean;
   phone?: string;
   telegram?: string;
+  vipUntil?: string | null;
+  vipPriority?: number;
 }
 
 export const districts = [

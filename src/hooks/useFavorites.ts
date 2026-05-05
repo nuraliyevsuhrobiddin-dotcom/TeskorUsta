@@ -9,6 +9,7 @@ import {
   migrateFavoriteIdsToSupabase,
   removeFavorite,
 } from "@/lib/supabase/api";
+import { trackEvent } from "@/lib/analytics";
 
 const GUEST_FAVORITES_STORAGE_KEY = "tezkorusta_favorites";
 const favoriteListeners = new Set<(snapshot: FavoriteSnapshot) => void>();
@@ -202,6 +203,12 @@ export function useFavorites(): FavoritesHookState {
             ? "Saqlanganlardan olib tashlandi"
             : "Saqlanganlarga qo'shildi"
         );
+        if (!wasFavorite) {
+          void trackEvent("favorite_added", {
+            listing_id: listingId,
+            auth: "guest",
+          });
+        }
         requireLoginForSave();
         return true;
       }
@@ -230,6 +237,12 @@ export function useFavorites(): FavoritesHookState {
       toast.success(
         wasFavorite ? "Saqlanganlardan olib tashlandi" : "Saqlanganlarga qo'shildi"
       );
+      if (!wasFavorite) {
+        void trackEvent("favorite_added", {
+          listing_id: listingId,
+          auth: "user",
+        });
+      }
       return true;
     },
     [requireLoginForSave, snapshot.userId]

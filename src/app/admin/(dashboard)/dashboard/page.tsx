@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, FileText, Eye, ShieldCheck, ArrowUpRight, PlusCircle, Settings, List } from "lucide-react";
+import { Users, FileText, Eye, ShieldCheck, ArrowUpRight, PlusCircle, Settings, List, Handshake, Star, Activity, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { fetchAdminDashboardStats } from "@/lib/supabase/api";
+import { fetchAdminAnalyticsStats, fetchAdminDashboardStats } from "@/lib/supabase/api";
 
 export default function DashboardPage() {
   const [statsData, setStatsData] = useState({
@@ -14,9 +14,22 @@ export default function DashboardPage() {
     activeListings: 0,
     latestUpdateLabel: "Yuklanmoqda...",
   });
+  const [analytics, setAnalytics] = useState({
+    todayUsers: 0,
+    weeklyActiveUsers: 0,
+    totalJobRequests: 0,
+    todayJobRequests: 0,
+    conversion: {
+      new: 0,
+      contacted: 0,
+      done: 0,
+    },
+    mostViewedListings: [] as Array<{ name: string; slug: string; views: number }>,
+  });
 
   useEffect(() => {
     fetchAdminDashboardStats().then(setStatsData);
+    fetchAdminAnalyticsStats().then(setAnalytics);
   }, []);
 
   const stats = [
@@ -28,9 +41,18 @@ export default function DashboardPage() {
 
   const quickActions = [
     { name: "Yangi e'lon", icon: PlusCircle, href: "/admin/add", color: "text-blue-600 bg-blue-50" },
-    { name: "VIP boshqaruv", icon: ShieldCheck, href: "/admin/listings?filter=vip", color: "text-amber-600 bg-amber-50" },
+    { name: "VIP boshqaruv", icon: ShieldCheck, href: "/admin/vip", color: "text-amber-600 bg-amber-50" },
     { name: "Barcha e'lonlar", icon: List, href: "/admin/listings", color: "text-emerald-600 bg-emerald-50" },
+    { name: "CRM", icon: Handshake, href: "/admin/crm", color: "text-indigo-600 bg-indigo-50" },
+    { name: "Sharhlar", icon: Star, href: "/admin/reviews", color: "text-rose-600 bg-rose-50" },
     { name: "Sozlamalar", icon: Settings, href: "/admin/settings", color: "text-slate-600 bg-slate-100" },
+  ];
+
+  const analyticsCards = [
+    { name: "Bugungi userlar", value: String(analytics.todayUsers), icon: Users, color: "bg-cyan-500" },
+    { name: "Haftalik aktiv", value: String(analytics.weeklyActiveUsers), icon: Activity, color: "bg-violet-500" },
+    { name: "Jami so'rovlar", value: String(analytics.totalJobRequests), icon: ClipboardList, color: "bg-blue-500" },
+    { name: "Bugungi so'rovlar", value: String(analytics.todayJobRequests), icon: Handshake, color: "bg-emerald-500" },
   ];
 
   return (
@@ -64,6 +86,24 @@ export default function DashboardPage() {
               <p className="text-sm font-semibold text-slate-500 mb-1">{stat.name}</p>
               <h3 className="text-2xl font-bold text-slate-800">{stat.value}</h3>
             </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {analyticsCards.map((stat, i) => (
+          <motion.div
+            key={stat.name}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: i * 0.05 }}
+            className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm"
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md ${stat.color} mb-4`}>
+              <stat.icon className="w-5 h-5" />
+            </div>
+            <p className="text-sm font-semibold text-slate-500 mb-1">{stat.name}</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stat.value}</h3>
           </motion.div>
         ))}
       </div>
@@ -121,6 +161,48 @@ export default function DashboardPage() {
              ))}
           </div>
         </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-slate-800 mb-5">Job conversion</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-blue-50 p-4">
+              <p className="text-xs font-bold text-blue-600 uppercase">New</p>
+              <p className="text-2xl font-black text-slate-800 mt-1">{analytics.conversion.new}</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-4">
+              <p className="text-xs font-bold text-amber-600 uppercase">Contacted</p>
+              <p className="text-2xl font-black text-slate-800 mt-1">{analytics.conversion.contacted}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 p-4">
+              <p className="text-xs font-bold text-emerald-600 uppercase">Done</p>
+              <p className="text-2xl font-black text-slate-800 mt-1">{analytics.conversion.done}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-slate-800 mb-5">Eng ko'p ko'rilgan ustalar</h2>
+          {analytics.mostViewedListings.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {analytics.mostViewedListings.map((listing) => (
+                <Link
+                  key={`${listing.slug}-${listing.name}`}
+                  href={listing.slug ? `/listings/${listing.slug}` : "/admin/listings"}
+                  className="flex items-center justify-between rounded-xl border border-slate-100 px-4 py-3 hover:bg-slate-50"
+                >
+                  <span className="text-sm font-bold text-slate-700">{listing.name}</span>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-600">
+                    {listing.views}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-slate-500">Hali listing view eventlari yo'q</p>
+          )}
+        </div>
       </div>
     </div>
   );

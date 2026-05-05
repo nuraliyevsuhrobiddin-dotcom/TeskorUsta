@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import InstallPrompt from "@/components/InstallPrompt";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 
 export const metadata: Metadata = {
   title: "TezkorUsta | Toshkent bo'yicha usta topish",
@@ -55,6 +56,7 @@ export default function RootLayout({
         className="antialiased bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-200"
       >
         <LanguageProvider>
+          <AnalyticsTracker />
           {children}
           <InstallPrompt />
         </LanguageProvider>

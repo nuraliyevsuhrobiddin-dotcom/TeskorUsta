@@ -55,6 +55,7 @@ export default function ListingCard({ listing, featured = false }: ListingCardPr
               src={listing.imageUrl} 
               alt={listing.name} 
               fill 
+              sizes="100vw"
               className="object-cover transition-transform duration-500 hover:scale-105"
             />
             {/* Top Badges */}

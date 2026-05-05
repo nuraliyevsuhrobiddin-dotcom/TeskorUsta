@@ -1,13 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { districts, Listing } from "@/data/mockListings";
-import { Search, Filter, MoreVertical, Edit, Trash2, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
+import { Search, Edit, Trash2, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { fetchAdminListings, deleteListing, toggleListingStatus } from "@/lib/supabase/api";
+import { useSearchParams } from "next/navigation";
 
 export default function AdminListingsPage() {
+  return (
+    <Suspense fallback={<AdminListingsSkeleton />}>
+      <AdminListingsContent />
+    </Suspense>
+  );
+}
+
+function AdminListingsSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 animate-pulse">
+      <div className="h-8 w-36 rounded-lg bg-slate-200" />
+      <div className="h-20 rounded-2xl bg-slate-200" />
+      <div className="h-96 rounded-2xl bg-slate-200" />
+    </div>
+  );
+}
+
+function AdminListingsContent() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [districtFilter, setDistrictFilter] = useState("all");
   const [vipFilter, setVipFilter] = useState("all"); // 'all', 'vip', 'regular'
@@ -25,6 +45,11 @@ export default function AdminListingsPage() {
   useEffect(() => {
     loadListings();
   }, []);
+
+  useEffect(() => {
+    const filter = searchParams.get("filter");
+    setVipFilter(filter === "vip" ? "vip" : "all");
+  }, [searchParams]);
 
   const filteredListings = listings.filter(l => {
     const matchesSearch = l.name.toLowerCase().includes(search.toLowerCase()) || l.category.toLowerCase().includes(search.toLowerCase());

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Download, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { trackEvent } from "@/lib/analytics";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -30,13 +31,23 @@ export default function InstallPrompt() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+      void trackEvent("pwa_install_prompt");
       // Wait a bit before showing the prompt to not overwhelm the user
       setTimeout(() => setShowPrompt(true), 3000);
     };
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    const handleAppInstalled = () => {
+      void trackEvent("pwa_installed");
+      setShowPrompt(false);
+    };
 
-    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
   }, []);
 
   const handleInstallClick = async () => {
@@ -47,6 +58,7 @@ export default function InstallPrompt() {
     
     if (outcome === 'accepted') {
       setShowPrompt(false);
+      void trackEvent("pwa_installed", { source: "prompt_choice" });
     }
     setDeferredPrompt(null);
   };

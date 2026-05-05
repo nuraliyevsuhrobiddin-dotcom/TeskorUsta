@@ -12,6 +12,7 @@ import ListingCard from "@/components/ListingCard";
 import { useFavorites } from "@/hooks/useFavorites";
 import toast from "react-hot-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { trackEvent } from "@/lib/analytics";
 
 function getTelegramHref(telegram?: string) {
   const value = telegram?.trim();
@@ -61,6 +62,13 @@ export default function ListingDetail({ params }: { params: Promise<{ slug: stri
     fetchListingBySlug(resolvedParams.slug).then(async data => {
       setListing(data);
       if (data) {
+         void trackEvent("listing_view", {
+           listing_id: data.id,
+           listing_slug: data.slug,
+           listing_name: data.name,
+           category: data.category,
+           district: data.district,
+         });
          // Optionally fetch all and filter, or just empty for now
          setSimilarListings([]);
       }
@@ -153,6 +161,7 @@ export default function ListingDetail({ params }: { params: Promise<{ slug: stri
           src={listing.imageUrl} 
           alt={listing.name} 
           fill 
+          sizes="100vw"
           className="object-cover"
           priority
         />

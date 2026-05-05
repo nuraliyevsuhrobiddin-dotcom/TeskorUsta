@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, UserPlus, Star, Settings, LogOut, Wrench, ShieldCheck, ListChecks } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, Star, Settings, LogOut, Wrench, ShieldCheck, ListChecks, Handshake } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
@@ -13,7 +13,8 @@ const menuItems = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "E'lonlar", href: "/admin/listings", icon: ListChecks },
   { name: "Yangi qo'shish", href: "/admin/add", icon: UserPlus },
-  { name: "VIP E'lonlar", href: "/admin/listings?filter=vip", icon: ShieldCheck },
+  { name: "VIP E'lonlar", href: "/admin/vip", icon: ShieldCheck },
+  { name: "CRM", href: "/admin/crm", icon: Handshake },
   { name: "Sharhlar", href: "/admin/reviews", icon: Star },
   { name: "Foydalanuvchilar", href: "/admin/users", icon: Users },
   { name: "Sozlamalar", href: "/admin/settings", icon: Settings },
@@ -62,17 +63,13 @@ export default function AdminSidebar({ isOpen = false, onClose }: { isOpen?: boo
         {menuItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href) && !item.href.includes("?"));
           const Icon = item.icon;
-          const isPlaceholder = item.href === "/admin/reviews" || item.href === "/admin/users";
 
           return (
             <Link
               key={item.name}
-              href={isPlaceholder ? "#" : item.href}
+              href={item.href}
               onClick={(e) => {
-                if (isPlaceholder) {
-                  e.preventDefault();
-                  toast.success("Ushbu bo'lim tez kunda qo'shiladi", { icon: "🚧" });
-                } else if (onClose) {
+                if (onClose) {
                   onClose();
                 }
               }}

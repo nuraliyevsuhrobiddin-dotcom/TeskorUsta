@@ -3,6 +3,7 @@
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import SearchBar from "@/components/SearchBar";
+import JobRequestForm from "@/components/JobRequestForm";
 import ListingCard from "@/components/ListingCard";
 import { Listing } from "@/data/mockListings";
 import {
@@ -48,6 +49,7 @@ export default function Home() {
   const [categories, setCategories] = useState<string[]>([]);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
   const [isCategoriesError, setIsCategoriesError] = useState(false);
+  const [isJobFormOpen, setIsJobFormOpen] = useState(false);
   const { t, language } = useLanguage();
 
   useEffect(() => {
@@ -139,6 +141,14 @@ export default function Home() {
                 {t("heroTrustFastReply")}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsJobFormOpen(true)}
+              className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 ring-1 ring-amber-200/70 transition hover:bg-amber-300"
+            >
+              <Send className="h-4 w-4" />
+              Usta chaqirish
+            </button>
           </motion.div>
 
           <motion.div
@@ -340,6 +350,7 @@ export default function Home() {
         </section>
       </main>
 
+      <JobRequestForm open={isJobFormOpen} onClose={() => setIsJobFormOpen(false)} />
       <BottomNav />
     </div>
   );
